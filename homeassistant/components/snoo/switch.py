@@ -14,8 +14,9 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN
-from .coordinator import SnooConfigEntry
+from .coordinator import SnooConfigEntry, SnooCoordinator
 from .entity import SnooDescriptionEntity
+from .levels import current_level
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -40,7 +41,7 @@ BINARY_SENSOR_DESCRIPTIONS: list[SnooSwitchEntityDescription] = [
         translation_key="hold",
         value_fn=lambda data: data.state_machine.hold == "on",
         set_value_fn=lambda snoo_api, device, data, state: snoo_api.set_level(
-            device, data.state_machine.level, state
+            device, current_level(data), state
         ),
     ),
 ]
@@ -58,6 +59,44 @@ async def async_setup_entry(
         for coordinator in coordinators.values()
         for description in BINARY_SENSOR_DESCRIPTIONS
     )
+    async_add_entities(
+        SnooWeaningSwitch(coordinator) for coordinator in coordinators.values()
+    )
+
+
+class SnooWeaningSwitch(SnooDescriptionEntity, SwitchEntity):
+    """Enable the bundled baseline automation for one SNOO."""
+
+    def __init__(self, coordinator: SnooCoordinator) -> None:
+        """Initialize the per-device mode switch."""
+        super().__init__(
+            coordinator,
+            SwitchEntityDescription(
+                key="emulated_weaning",
+                translation_key="emulated_weaning",
+                icon="mdi:motion-pause",
+            ),
+        )
+
+    @property
+    @override
+    def is_on(self) -> bool:
+        return self.coordinator.weaning.enabled
+
+    @override
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.coordinator.async_set_weaning_enabled(True)
+
+    @override
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        try:
+            await self.coordinator.async_set_weaning_enabled(False)
+        except SnooCommandException as err:
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="switch_off_failed",
+                translation_placeholders={"name": str(self.name)},
+            ) from err
 
 
 class SnooSwitch(SnooDescriptionEntity, SwitchEntity):
