@@ -73,3 +73,28 @@ async def test_update_failed(hass: HomeAssistant, bypass_api: AsyncMock) -> None
 
     assert bypass_api.set_level.assert_called_once
     assert hass.states.get("select.test_snoo_intensity").state == "stop"
+
+
+async def test_weaning_baseline(hass: HomeAssistant, bypass_api: AsyncMock) -> None:
+    """Expose and report motion-free baseline using the supported device state."""
+    await async_init_integration(hass)
+    find_update_callback(bypass_api, "random_num")(MOCK_SNOO_DATA)
+    assert (
+        "weaning_baseline"
+        in hass.states.get("select.test_snoo_intensity").attributes["options"]
+    )
+    await hass.services.async_call(
+        "select",
+        SERVICE_SELECT_OPTION,
+        {"entity_id": "select.test_snoo_intensity", "option": "weaning_baseline"},
+        blocking=True,
+    )
+    bypass_api.set_level.assert_awaited_once_with(
+        bypass_api.get_devices.return_value[0], SnooStates.weaning_baseline
+    )
+    data = copy.deepcopy(MOCK_SNOO_DATA)
+    data.state_machine.state = SnooStates.weaning_baseline
+    data.state_machine.level = SnooLevels.baseline
+    find_update_callback(bypass_api, "random_num")(data)
+    await hass.async_block_till_done()
+    assert hass.states.get("select.test_snoo_intensity").state == "weaning_baseline"

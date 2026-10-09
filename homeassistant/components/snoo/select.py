@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import override
 
-from python_snoo.containers import SnooData, SnooDevice, SnooLevels
+from python_snoo.containers import SnooData, SnooDevice
 from python_snoo.exceptions import SnooCommandException
 from python_snoo.snoo import Snoo
 
@@ -16,13 +16,14 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import DOMAIN
 from .coordinator import SnooConfigEntry
 from .entity import SnooDescriptionEntity
+from .levels import INTENSITY_OPTIONS, command_level, current_option
 
 
 @dataclass(frozen=True, kw_only=True)
 class SnooSelectEntityDescription(SelectEntityDescription):
     """Describes a Snoo Select."""
 
-    value_fn: Callable[[SnooData], str]
+    value_fn: Callable[[SnooData], str | None]
     set_value_fn: Callable[[Snoo, SnooDevice, str], Awaitable[None]]
 
 
@@ -30,11 +31,11 @@ SELECT_DESCRIPTIONS: list[SnooSelectEntityDescription] = [
     SnooSelectEntityDescription(
         key="intensity",
         translation_key="intensity",
-        value_fn=lambda data: data.state_machine.level.name,
+        value_fn=current_option,
         set_value_fn=lambda snoo_api, device, state: snoo_api.set_level(
-            device, SnooLevels[state]
+            device, command_level(state)
         ),
-        options=[level.name for level in SnooLevels],
+        options=INTENSITY_OPTIONS,
     ),
 ]
 

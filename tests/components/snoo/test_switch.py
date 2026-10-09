@@ -23,14 +23,14 @@ from .const import MOCK_SNOO_DATA
 async def test_switch(hass: HomeAssistant, bypass_api: AsyncMock) -> None:
     """Test switch and check test values are correctly set."""
     await async_init_integration(hass)
-    assert len(hass.states.async_all("switch")) == 2
+    assert len(hass.states.async_all("switch")) == 3
     assert hass.states.get("switch.test_snoo_level_lock").state == STATE_UNAVAILABLE
     assert (
         hass.states.get("switch.test_snoo_sleepytime_sounds").state == STATE_UNAVAILABLE
     )
     find_update_callback(bypass_api, "random_num")(MOCK_SNOO_DATA)
     await hass.async_block_till_done()
-    assert len(hass.states.async_all("switch")) == 2
+    assert len(hass.states.async_all("switch")) == 3
     assert hass.states.get("switch.test_snoo_sleepytime_sounds").state == STATE_OFF
     assert hass.states.get("switch.test_snoo_level_lock").state == STATE_OFF
 
